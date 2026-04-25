@@ -37,9 +37,11 @@ async function register(req, res) {
   if (payload.role === "driver") {
     const driver = await Driver.create({
       name: payload.name,
-      phone: payload.phone,
+      phone: payload.phone || "N/A",
       email: payload.email,
       maxWeight: 0,
+      truckTypes: [],
+      pricePerKm: 0,
       currentLocation: "Unknown"
     });
     user.driverProfile = driver._id;

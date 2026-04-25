@@ -3,6 +3,7 @@ const { Driver } = require("../models/driver.model");
 const { validateCreate, validateUpdate, validateAssign } = require("../validators/load.validator");
 const { findMatches } = require("../services/matching.service");
 const { geocodeLocation, enrichDriversWithDistance } = require("../services/distance.service");
+const { sendStatusUpdate, notifyTrader } = require("../services/sms.service");
 
 const createError = (status, message) => {
   const err = new Error(message);
@@ -47,8 +48,8 @@ async function getLoads(req, res) {
   }
 
   const loads = await Load.find(query)
-    .populate("assignedDriver", "name truckTypes rating currentLocation availability")
-    .populate("postedBy", "name email role")
+    .populate("assignedDriver", "name truckTypes rating currentLocation availability phone")
+    .populate("postedBy", "name email role phone")
     .sort({ createdAt: -1 });
   res.json({
     success: true,
@@ -58,8 +59,8 @@ async function getLoads(req, res) {
 
 async function getLoad(req, res) {
   const load = await Load.findById(req.params.id)
-    .populate("assignedDriver", "name truckTypes rating currentLocation availability")
-    .populate("postedBy", "name email role");
+    .populate("assignedDriver", "name truckTypes rating currentLocation availability phone")
+    .populate("postedBy", "name email role phone");
   if (!load) {
     throw createError(404, "Load not found");
   }
@@ -182,9 +183,34 @@ async function acceptLoad(req, res) {
   load.status = "assigned";
   await load.save();
 
-  const populated = await load.populate("assignedDriver", "name truckTypes rating currentLocation availability");
+  const populated = await load
+    .populate("assignedDriver", "name truckTypes rating currentLocation availability phone")
+    .populate("postedBy", "name email role phone");
 
-  res.json({ success: true, data: populated, message: "Load accepted" });
+  const traderPhone = populated.contactPhone || populated.deliveryPhone || populated.postedBy?.phone;
+  const driver = await Driver.findById(req.user.driverProfile).select("name phone");
+  let notification = { sent: false, phone: traderPhone || null, error: null };
+
+  if (traderPhone) {
+    try {
+      const result = await notifyTrader(traderPhone, driver || { name: "Driver", phone: "N/A" }, populated);
+      notification.sent = Boolean(result?.success);
+      notification.details = result;
+    } catch (notificationError) {
+      notification.error = notificationError?.message || notificationError;
+      console.warn("Failed to notify trader on load acceptance:", notification.error);
+    }
+  } else {
+    notification.error = "No trader phone available";
+    console.warn("Accept load: unable to notify trader because no trader phone was found", { loadId: load._id });
+  }
+
+  res.json({
+    success: true,
+    data: populated,
+    notification,
+    message: notification.sent ? "Load accepted and trader notified" : "Load accepted; trader notification was not sent"
+  });
 }
 
 async function updateStatus(req, res) {
@@ -208,13 +234,64 @@ async function updateStatus(req, res) {
     throw createError(403, "Not allowed to change status");
   }
 
+  const previousStatus = load.status;
   load.status = status;
   await load.save();
+
+  // Keep driver trip stats in sync
+  if (load.assignedDriver) {
+    if (status === "delivered" && previousStatus !== "delivered") {
+      await Driver.findByIdAndUpdate(load.assignedDriver, {
+        $inc: { totalTrips: 1, completedTrips: 1 }
+      });
+    } else if (status === "cancelled" && previousStatus !== "cancelled") {
+      await Driver.findByIdAndUpdate(load.assignedDriver, {
+        $inc: { totalTrips: 1, cancelledTrips: 1 }
+      });
+    }
+  }
+
   const populated = await load
     .populate("assignedDriver", "name truckTypes rating currentLocation availability")
     .populate("postedBy", "name email role");
 
   res.json({ success: true, data: populated, message: "Status updated" });
+}
+
+async function contactCustomer(req, res) {
+  const { phone } = req.body;
+  
+  if (!phone || typeof phone !== 'string') {
+    throw createError(400, "Phone number is required");
+  }
+
+  if (!req.user || req.user.role !== "driver" || !req.user.driverProfile) {
+    throw createError(403, "Driver account required");
+  }
+
+  const load = await Load.findById(req.params.id);
+  if (!load) throw createError(404, "Load not found");
+
+  // Verify driver is assigned to this load
+  if (!load.assignedDriver || load.assignedDriver.toString() !== req.user.driverProfile.toString()) {
+    throw createError(403, "Not assigned to this load");
+  }
+
+  try {
+    const driver = await Driver.findById(req.user.driverProfile);
+    const message = `Your cargo from ${load.pickupLocation} to ${load.deliveryLocation} is on the way. Driver ${driver?.name || 'will'} contact you soon. Driver phone: ${driver?.phone || 'N/A'}`;
+    
+    // Send SMS if enabled
+    await sendStatusUpdate(phone, 'in_transit', load);
+    
+    res.json({ 
+      success: true, 
+      message: "Customer notified",
+      data: { contacted: true, phone }
+    });
+  } catch (err) {
+    throw createError(500, "Failed to contact customer: " + err.message);
+  }
 }
 
 module.exports = {
@@ -226,5 +303,6 @@ module.exports = {
   assignDriver,
   getLoadMatches,
   acceptLoad,
-  updateStatus
+  updateStatus,
+  contactCustomer
 };
