@@ -8,7 +8,8 @@ const {
   assignDriver,
   getLoadMatches,
   acceptLoad,
-  updateStatus
+  updateStatus,
+  contactCustomer
 } = require("../controllers/load.controller");
 const { auth, requireRole } = require("../middleware/auth");
 
@@ -29,5 +30,6 @@ router.get("/:id/matches", auth, getLoadMatches);
 router.post("/:id/assign", auth, requireRole("admin"), assignDriver);
 router.post("/:id/accept", auth, requireRole("driver"), acceptLoad);
 router.post("/:id/status", auth, updateStatus);
+router.post("/:id/contact", auth, requireRole("driver"), contactCustomer);
 
 module.exports = router;
