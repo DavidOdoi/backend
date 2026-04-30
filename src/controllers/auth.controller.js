@@ -9,6 +9,43 @@ const createError = (status, message) => {
   return err;
 };
 
+const USER_ROLE_BY_INPUT = {
+  trader: "trader",
+  customer: "trader",
+  driver: "driver",
+  staff: "driver",
+  admin: "admin"
+};
+
+const PLATFORM_ROLE_BY_USER_ROLE = {
+  trader: "customer",
+  customer: "customer",
+  driver: "staff",
+  staff: "staff",
+  admin: "admin"
+};
+
+function normalizeRoleInput(inputRole) {
+  const normalized = (inputRole || "customer").toString().toLowerCase();
+  return USER_ROLE_BY_INPUT[normalized] || "trader";
+}
+
+function serializeUser(user) {
+  return {
+    id: user._id,
+    name: user.name,
+    companyName: user.companyName,
+    location: user.location,
+    businessType: user.businessType,
+    tradingVolume: user.tradingVolume,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    platformRole: PLATFORM_ROLE_BY_USER_ROLE[user.role] || "customer",
+    driverProfile: user.driverProfile
+  };
+}
+
 function signToken(user) {
   return jwt.sign(
     {
@@ -24,81 +61,103 @@ function signToken(user) {
 }
 
 async function register(req, res) {
-  const payload = validateRegister(req.body);
+  console.log("Register endpoint hit with body:", req.body);
+  
+  try {
+    console.log("Validating registration data...");
+    const payload = validateRegister(req.body);
+    console.log("Validation passed, payload:", payload);
+    
+    const mappedRole = normalizeRoleInput(payload.role);
+    console.log("Mapped role:", mappedRole);
 
-  const exists = await User.findOne({ email: payload.email });
-  if (exists) {
-    throw createError(409, "Email already in use");
-  }
+    const exists = await User.findOne({ email: payload.email });
+    if (exists) {
+      console.log("Email already exists:", payload.email);
+      throw createError(409, "Email already in use");
+    }
 
-  const user = await User.create(payload);
-
-  // If driver role, create a stub driver profile linked to user
-  if (payload.role === "driver") {
-    const driver = await Driver.create({
-      name: payload.name,
-      phone: payload.phone,
-      email: payload.email,
-      maxWeight: 0,
-      currentLocation: "Unknown"
+    console.log("Creating user with data:", { ...payload, role: mappedRole });
+    const user = await User.create({
+      ...payload,
+      role: mappedRole
     });
-    user.driverProfile = driver._id;
-    await user.save();
-  }
+    console.log("User created successfully:", user._id);
 
-  const token = signToken(user);
+    // If driver role, create a stub driver profile linked to user
+    if (mappedRole === "driver") {
+      console.log("Creating driver profile for user:", user._id);
+      const driver = await Driver.create({
+        name: payload.name,
+        phone: payload.phone,
+        email: payload.email,
+        maxWeight: 0,
+        currentLocation: "Unknown"
+      });
+      user.driverProfile = driver._id;
+      await user.save();
+      console.log("Driver profile created:", driver._id);
+    }
 
-  res.status(201).json({
-    success: true,
-    data: {
-      user: {
-        id: user._id,
-        name: user.name,
-        companyName: user.companyName,
-        location: user.location,
-        businessType: user.businessType,
-        tradingVolume: user.tradingVolume,
-        email: user.email,
-        role: user.role,
-        driverProfile: user.driverProfile
+    console.log("Signing JWT token...");
+    const token = signToken(user);
+    console.log("Token signed successfully");
+
+    console.log("Sending success response...");
+    return res.status(201).json({
+      success: true,
+      data: {
+        user: serializeUser(user),
+        token
       },
-      token
-    },
-    message: "Registered"
-  });
+      message: "Registered"
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    throw error;
+  }
 }
 
 async function login(req, res) {
-  const { email, password } = validateLogin(req.body);
-  const user = await User.findOne({ email });
-  if (!user) {
-    throw createError(401, "Invalid credentials");
-  }
+  try {
+    const { email, password } = validateLogin(req.body);
+    const user = await User.findOne({ email });
+    if (!user) {
+      throw createError(401, "Invalid credentials");
+    }
 
-  const valid = await user.comparePassword(password);
-  if (!valid) {
-    throw createError(401, "Invalid credentials");
-  }
+    const valid = await user.comparePassword(password);
+    if (!valid) {
+      throw createError(401, "Invalid credentials");
+    }
 
-  const token = signToken(user);
-  res.json({
-    success: true,
-    data: {
-      user: {
-        id: user._id,
-        name: user.name,
-        companyName: user.companyName,
-        location: user.location,
-        businessType: user.businessType,
-        tradingVolume: user.tradingVolume,
-        email: user.email,
-        role: user.role,
-        driverProfile: user.driverProfile
+    const token = signToken(user);
+    return res.json({
+      success: true,
+      data: {
+        user: serializeUser(user),
+        token
       },
-      token
-    },
-    message: "Logged in"
-  });
+      message: "Logged in"
+    });
+  } catch (error) {
+    throw error;
+  }
 }
 
-module.exports = { register, login };
+async function me(req, res) {
+  try {
+    if (!req.user) {
+      throw createError(401, "Unauthorized");
+    }
+
+    return res.json({
+      success: true,
+      data: serializeUser(req.user)
+    });
+  } catch (error) {
+    throw error;
+  }
+}
+
+module.exports = { register, login, me };

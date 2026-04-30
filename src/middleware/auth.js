@@ -7,6 +7,14 @@ const createAuthError = (status, message) => {
   return err;
 };
 
+const ROLE_ALIASES = {
+  trader: ["trader", "customer"],
+  customer: ["customer", "trader"],
+  driver: ["driver", "staff"],
+  staff: ["staff", "driver"],
+  admin: ["admin"]
+};
+
 async function auth(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.toLowerCase().startsWith("bearer ")) {
@@ -29,7 +37,13 @@ async function auth(req, res, next) {
 
 const requireRole = (...roles) => (req, res, next) => {
   if (!req.user) return next(createAuthError(401, "Unauthorized"));
-  if (!roles.includes(req.user.role)) {
+  const allowed = new Set(
+    roles.flatMap((role) => ROLE_ALIASES[role] || [role])
+  );
+  const userCandidates = ROLE_ALIASES[req.user.role] || [req.user.role];
+  const canAccess = userCandidates.some((role) => allowed.has(role));
+
+  if (!canAccess) {
     return next(createAuthError(403, "Forbidden"));
   }
   next();

@@ -24,7 +24,7 @@ async function createDriver(req, res) {
     await User.findByIdAndUpdate(req.user._id, { driverProfile: driver._id });
   }
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
     data: driver,
     message: "Driver created"
@@ -38,20 +38,22 @@ async function getDrivers(req, res) {
     query["availability.status"] = status;
   }
 
-  const drivers = await Driver.find(query).sort({ createdAt: -1 });
-  res.json({
+  const drivers = await Driver.find(query)
+    .populate("assignedTruck", "plateNumber type status")
+    .sort({ createdAt: -1 });
+  return res.json({
     success: true,
     data: drivers
   });
 }
 
 async function getDriver(req, res) {
-  const driver = await Driver.findById(req.params.id);
+  const driver = await Driver.findById(req.params.id).populate("assignedTruck", "plateNumber type status");
   if (!driver) {
     throw createError(404, "Driver not found");
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: driver
   });
@@ -68,13 +70,13 @@ async function updateDriver(req, res) {
   const driver = await Driver.findByIdAndUpdate(req.params.id, updates, {
     new: true,
     runValidators: true
-  });
+  }).populate("assignedTruck", "plateNumber type status");
 
   if (!driver) {
     throw createError(404, "Driver not found");
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: driver,
     message: "Driver updated"
@@ -87,7 +89,7 @@ async function deleteDriver(req, res) {
     throw createError(404, "Driver not found");
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: driver,
     message: "Driver deleted"

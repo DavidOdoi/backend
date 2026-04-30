@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, trim: true, lowercase: true, unique: true },
     phone: { type: String, trim: true },
     password: { type: String, required: true, minlength: 6 },
-    role: { type: String, enum: ["trader", "driver", "admin"], default: "trader" },
+    role: { type: String, enum: ["trader", "driver", "admin", "customer", "staff"], default: "trader" },
     driverProfile: { type: mongoose.Schema.Types.ObjectId, ref: "Driver" }
   },
   { timestamps: true }

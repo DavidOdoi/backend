@@ -19,12 +19,14 @@ const driverSchema = new mongoose.Schema(
     cargoTypes: [{ type: String, trim: true }],
     specialCapabilities: [{ type: String, trim: true }],
     languages: [{ type: String, trim: true }],
+    assignedTruck: { type: mongoose.Schema.Types.ObjectId, ref: "Truck" },
 
     currentLocation: { type: String, required: true, trim: true },
     currentLocationGeo: {
       lat: { type: Number },
       lng: { type: Number }
     },
+    locationUpdatedAt: { type: Date },
     homeBase: { type: String, trim: true },
     preferredRoutes: [routeSchema],
 

@@ -8,7 +8,8 @@ const {
   assignDriver,
   getLoadMatches,
   acceptLoad,
-  updateStatus
+  updateStatus,
+  trackLoadByTrackingId
 } = require("../controllers/load.controller");
 const { auth, requireRole } = require("../middleware/auth");
 
@@ -18,6 +19,8 @@ router
   .route("/")
   .get(auth, getLoads)
   .post(auth, requireRole("trader", "admin"), createLoad);
+
+router.get("/track/:trackingId", trackLoadByTrackingId);
 
 router
   .route("/:id")

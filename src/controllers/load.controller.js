@@ -10,27 +10,76 @@ const createError = (status, message) => {
   return err;
 };
 
-async function createLoad(req, res) {
-  const payload = validateCreate(req.body);
-  if (req.user) {
-    payload.postedBy = req.user._id;
-  }
-  const pickupQuery = payload.pickupLocation || payload.pickupCity;
-  const deliveryQuery = payload.deliveryLocation || payload.deliveryCity;
-  if (pickupQuery) {
-    const pickupGeo = await geocodeLocation(pickupQuery);
-    if (pickupGeo) payload.pickupGeo = pickupGeo;
-  }
-  if (deliveryQuery) {
-    const deliveryGeo = await geocodeLocation(deliveryQuery);
-    if (deliveryGeo) payload.deliveryGeo = deliveryGeo;
-  }
-  const load = await Load.create(payload);
+const isDriverLikeRole = (role) => role === "driver" || role === "staff";
 
-  res.status(201).json({
+function appendStatusHistory(load, status, options = {}) {
+  if (!load) return;
+  if (!Array.isArray(load.statusHistory)) {
+    load.statusHistory = [];
+  }
+  load.statusHistory.push({
+    status,
+    note: options.note,
+    location: options.location,
+    changedByRole: options.changedByRole,
+    timestamp: new Date()
+  });
+}
+
+async function createLoad(req, res) {
+  console.log("=== CREATE LOAD ENDPOINT ===");
+  console.log("Request body:", JSON.stringify(req.body, null, 2));
+  
+  try {
+    const payload = validateCreate(req.body);
+    console.log("Validation passed, payload:", JSON.stringify(payload, null, 2));
+    
+    if (req.user) {
+      payload.postedBy = req.user._id;
+    }
+    const pickupQuery = payload.pickupLocation || payload.pickupCity;
+    const deliveryQuery = payload.deliveryLocation || payload.deliveryCity;
+    if (pickupQuery) {
+      const pickupGeo = await geocodeLocation(pickupQuery);
+      if (pickupGeo) payload.pickupGeo = pickupGeo;
+    }
+    if (deliveryQuery) {
+      const deliveryGeo = await geocodeLocation(deliveryQuery);
+      if (deliveryGeo) payload.deliveryGeo = deliveryGeo;
+    }
+    const load = await Load.create(payload);
+    console.log("Load created successfully:", load._id);
+
+    return res.status(201).json({
+      success: true,
+      data: load,
+      message: "Load created"
+    });
+  } catch (error) {
+    console.error("Error creating load:", error);
+    throw error;
+  }
+}
+
+async function trackLoadByTrackingId(req, res) {
+  const trackingId = req.params.trackingId?.toString().trim().toUpperCase();
+  if (!trackingId) {
+    throw createError(400, "Tracking ID is required");
+  }
+
+  const load = await Load.findOne({ trackingId })
+    .populate("assignedDriver", "name phone currentLocation")
+    .select(
+      "trackingId pickupLocation pickupCity deliveryLocation deliveryCity cargoType weight status statusHistory assignedDriver createdAt updatedAt"
+    );
+
+  if (!load) {
+    throw createError(404, "Tracking ID not found");
+  }
+
+  return res.json({
     success: true,
-    data: load,
-    message: "Load created"
+    data: load
   });
 }
 
@@ -42,7 +91,7 @@ async function getLoads(req, res) {
   if (req.user && req.query.mine === "true") {
     query.postedBy = req.user._id;
   }
-  if (req.user && req.query.assigned === "me" && req.user.role === "driver" && req.user.driverProfile) {
+  if (req.user && req.query.assigned === "me" && isDriverLikeRole(req.user.role) && req.user.driverProfile) {
     query.assignedDriver = req.user.driverProfile;
   }
 
@@ -50,7 +99,7 @@ async function getLoads(req, res) {
     .populate("assignedDriver", "name truckTypes rating currentLocation availability")
     .populate("postedBy", "name email role")
     .sort({ createdAt: -1 });
-  res.json({
+  return res.json({
     success: true,
     data: loads
   });
@@ -64,7 +113,7 @@ async function getLoad(req, res) {
     throw createError(404, "Load not found");
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: load
   });
@@ -98,7 +147,7 @@ async function updateLoad(req, res) {
     throw createError(404, "Load not found");
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: load,
     message: "Load updated"
@@ -120,7 +169,7 @@ async function deleteLoad(req, res) {
 
   await load.deleteOne();
 
-  res.json({
+  return res.json({
     success: true,
     data: load,
     message: "Load deleted"
@@ -145,7 +194,14 @@ async function assignDriver(req, res) {
     throw createError(404, "Load not found");
   }
 
-  res.json({
+  appendStatusHistory(load, "assigned", {
+    note: "Driver assigned",
+    location: load.assignedDriver?.currentLocation || load.pickupCity || load.pickupLocation,
+    changedByRole: req.user?.role || "admin"
+  });
+  await load.save();
+
+  return res.json({
     success: true,
     data: load,
     message: "Driver assigned"
@@ -163,14 +219,14 @@ async function getLoadMatches(req, res) {
   const enriched = await enrichDriversWithDistance(load, drivers);
   const matches = findMatches(load, enriched, limit, { strict: true });
 
-  res.json({
+  return res.json({
     success: true,
     data: matches
   });
 }
 
 async function acceptLoad(req, res) {
-  if (!req.user || req.user.role !== "driver" || !req.user.driverProfile) {
+  if (!req.user || !isDriverLikeRole(req.user.role) || !req.user.driverProfile) {
     throw createError(403, "Driver account required");
   }
 
@@ -180,11 +236,16 @@ async function acceptLoad(req, res) {
 
   load.assignedDriver = req.user.driverProfile;
   load.status = "assigned";
+  appendStatusHistory(load, "assigned", {
+    note: "Driver accepted load",
+    location: load.pickupCity || load.pickupLocation,
+    changedByRole: req.user.role
+  });
   await load.save();
 
   const populated = await load.populate("assignedDriver", "name truckTypes rating currentLocation availability");
 
-  res.json({ success: true, data: populated, message: "Load accepted" });
+  return res.json({ success: true, data: populated, message: "Load accepted" });
 }
 
 async function updateStatus(req, res) {
@@ -199,7 +260,7 @@ async function updateStatus(req, res) {
   const isOwner = req.user && load.postedBy && load.postedBy.toString() === req.user._id.toString();
   const isAssignedDriver =
     req.user &&
-    req.user.role === "driver" &&
+    isDriverLikeRole(req.user.role) &&
     load.assignedDriver &&
     load.assignedDriver.toString() === req.user.driverProfile?.toString();
   const isAdmin = req.user && req.user.role === "admin";
@@ -209,16 +270,24 @@ async function updateStatus(req, res) {
   }
 
   load.status = status;
+  appendStatusHistory(load, status, {
+    note: "Shipment status updated",
+    location: status === "delivered"
+      ? load.deliveryCity || load.deliveryLocation
+      : load.assignedDriver?.currentLocation || load.pickupCity || load.pickupLocation,
+    changedByRole: req.user?.role
+  });
   await load.save();
   const populated = await load
     .populate("assignedDriver", "name truckTypes rating currentLocation availability")
     .populate("postedBy", "name email role");
 
-  res.json({ success: true, data: populated, message: "Status updated" });
+  return res.json({ success: true, data: populated, message: "Status updated" });
 }
 
 module.exports = {
   createLoad,
+  trackLoadByTrackingId,
   getLoads,
   getLoad,
   updateLoad,

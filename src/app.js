@@ -6,7 +6,11 @@ const helmet = require("helmet");
 
 const loadRoutes = require("./routes/load.routes");
 const driverRoutes = require("./routes/driver.routes");
+const truckRoutes = require("./routes/truck.routes");
 const authRoutes = require("./routes/auth.routes");
+const paymentRoutes = require("./routes/payment.routes");
+const userRoutes = require("./routes/user.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 function createApp() {
@@ -43,6 +47,10 @@ function createApp() {
   app.use("/api/v1/auth", authRoutes);
   app.use("/api/v1/loads", loadRoutes);
   app.use("/api/v1/drivers", driverRoutes);
+  app.use("/api/v1/trucks", truckRoutes);
+  app.use("/api/v1/payments", paymentRoutes);
+  app.use("/api/v1/users", userRoutes);
+  app.use("/api/v1/dashboard", dashboardRoutes);
 
   app.use(notFound);
   app.use(errorHandler);
