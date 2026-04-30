@@ -9,13 +9,32 @@ const createError = (status, message) => {
   return err;
 };
 
+async function geocodeRoutes(routes) {
+  if (!Array.isArray(routes) || routes.length === 0) return routes;
+  return Promise.all(
+    routes.map(async (route) => {
+      const enriched = { ...route };
+      if (route.from) {
+        const geo = await geocodeLocation(route.from);
+        if (geo) enriched.fromGeo = geo;
+      }
+      if (route.to) {
+        const geo = await geocodeLocation(route.to);
+        if (geo) enriched.toGeo = geo;
+      }
+      return enriched;
+    })
+  );
+}
+
 async function createDriver(req, res) {
   const payload = validateCreateDriver(req.body);
   if (payload.currentLocation) {
     const geo = await geocodeLocation(payload.currentLocation);
-    if (geo) {
-      payload.currentLocationGeo = geo;
-    }
+    if (geo) payload.currentLocationGeo = geo;
+  }
+  if (payload.preferredRoutes) {
+    payload.preferredRoutes = await geocodeRoutes(payload.preferredRoutes);
   }
   const driver = await Driver.create(payload);
 
@@ -63,9 +82,10 @@ async function updateDriver(req, res) {
   const updates = validateUpdateDriver(req.body);
   if (updates.currentLocation) {
     const geo = await geocodeLocation(updates.currentLocation);
-    if (geo) {
-      updates.currentLocationGeo = geo;
-    }
+    if (geo) updates.currentLocationGeo = geo;
+  }
+  if (updates.preferredRoutes) {
+    updates.preferredRoutes = await geocodeRoutes(updates.preferredRoutes);
   }
   const driver = await Driver.findByIdAndUpdate(req.params.id, updates, {
     new: true,
