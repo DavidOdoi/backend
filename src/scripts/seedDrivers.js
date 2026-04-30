@@ -15,8 +15,8 @@ async function seedDrivers() {
 
   const existing = await Driver.countDocuments();
   if (existing > 0) {
-    console.log(`Skipping seed; ${existing} drivers already exist`);
-    return;
+    console.log(`Deleting ${existing} existing drivers...`);
+    await Driver.deleteMany({});
   }
 
   const drivers = [
@@ -30,6 +30,7 @@ async function seedDrivers() {
       specialCapabilities: ["fragile"],
       languages: ["en", "sw"],
       currentLocation: "Nairobi",
+      currentLocationGeo: { lat: -1.286389, lng: 36.817223 },
       homeBase: "Nairobi",
       preferredRoutes: [{ from: "Nairobi", to: "Mombasa" }],
       pricePerKm: 120,
@@ -48,6 +49,7 @@ async function seedDrivers() {
       specialCapabilities: ["refrigerated"],
       languages: ["en", "sw"],
       currentLocation: "Mombasa",
+      currentLocationGeo: { lat: -4.043477, lng: 39.668206 },
       homeBase: "Mombasa",
       preferredRoutes: [{ from: "Mombasa", to: "Nairobi" }, { from: "Mombasa", to: "Kampala" }],
       pricePerKm: 150,
@@ -66,6 +68,7 @@ async function seedDrivers() {
       specialCapabilities: ["refrigerated", "hazardous"],
       languages: ["en", "sw"],
       currentLocation: "Kampala",
+      currentLocationGeo: { lat: 0.347596, lng: 32.582520 },
       homeBase: "Kampala",
       preferredRoutes: [{ from: "Kampala", to: "Dar es Salaam" }],
       pricePerKm: 140,

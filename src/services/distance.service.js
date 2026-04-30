@@ -117,6 +117,17 @@ async function enrichDriversWithDistance(load, drivers) {
   const driversWithGeo = drivers.filter((d) => d.currentLocationGeo?.lat && d.currentLocationGeo?.lng);
   if (driversWithGeo.length === 0) return drivers;
 
+  // Try OpenRouteService first (if API key is set)
+  const { enrichDriversWithDistance: enrichWithOpenRoute } = require("./routing.service");
+  const enrichedViaOpenRoute = await enrichWithOpenRoute(load, drivers);
+  
+  // Check if OpenRouteService worked (drivers have distance data)
+  const hasDistance = enrichedViaOpenRoute.some((d) => d._distanceKm !== undefined);
+  if (hasDistance) {
+    return enrichedViaOpenRoute;
+  }
+
+  // Fallback to GraphHopper if OpenRouteService fails
   const matrix = (await getDistanceMatrixGraphHopper(load.pickupGeo, driversWithGeo.map((d) => d.currentLocationGeo))) ||
     [];
   if (matrix.length === 0) {

@@ -22,7 +22,7 @@ const driverBaseSchema = z.object({
   phone: z.string().trim().min(1, "phone is required"),
   email: z.string().trim().email().optional(),
 
-  truckTypes: z.array(z.string().trim()).optional(),
+  truckTypes: z.array(z.string().trim()).min(1, "at least one truck type is required"),
   maxWeight: z.preprocess(toNumber, z.number().nonnegative("maxWeight must be a number")),
   cargoTypes: z.array(z.string().trim()).optional(),
   specialCapabilities: z.array(z.string().trim()).optional(),
@@ -32,7 +32,7 @@ const driverBaseSchema = z.object({
   homeBase: z.string().trim().optional(),
   preferredRoutes: z.array(routeSchema).optional(),
 
-  pricePerKm: z.preprocess(toNumber, z.number().nonnegative()).optional(),
+  pricePerKm: z.preprocess(toNumber, z.number().positive("pricePerKm is required")),
   rating: z.preprocess(toNumber, z.number().min(0).max(5)).optional(),
   experienceYears: z.preprocess(toNumber, z.number().nonnegative()).optional(),
   verified: z.boolean().optional(),
