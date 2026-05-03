@@ -91,8 +91,10 @@ async function register(req, res) {
         name: payload.name,
         phone: payload.phone,
         email: payload.email,
-        maxWeight: 0,
-        currentLocation: "Unknown"
+        maxWeight: req.body.maxWeight || 0,
+        currentLocation: req.body.location || "Unknown",
+        pricePerKm: req.body.pricePerKm || 0,
+        homeBase: req.body.location || ""
       });
       user.driverProfile = driver._id;
       await user.save();
