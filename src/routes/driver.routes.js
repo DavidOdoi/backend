@@ -4,11 +4,21 @@ const {
   getDrivers,
   getDriver,
   updateDriver,
-  deleteDriver
+  deleteDriver,
+  updateMyLocation,
+  updateMyAvailability,
+  getMyLoads,
+  searchDrivers
 } = require("../controllers/driver.controller");
 const { auth, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
+
+// Must be before /:id to avoid "me", "search" being treated as IDs
+router.get("/search", searchDrivers);
+router.get("/me/loads", auth, requireRole("driver"), getMyLoads);
+router.patch("/me/location", auth, requireRole("driver"), updateMyLocation);
+router.patch("/me/availability", auth, requireRole("driver"), updateMyAvailability);
 
 router
   .route("/")

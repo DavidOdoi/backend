@@ -30,6 +30,16 @@ function serializeUser(user) {
   };
 }
 
+function serializePublic(user) {
+  return {
+    id: user._id,
+    name: user.name,
+    companyName: user.companyName || null,
+    location: user.location || null,
+    role: user.role
+  };
+}
+
 async function getMe(req, res) {
   if (!req.user) throw createError(401, "Unauthorized");
   return res.json({
@@ -64,7 +74,43 @@ async function updateMe(req, res) {
   });
 }
 
+// Search users by name, company, phone, email, or role
+async function searchUsers(req, res) {
+  const { q, role, limit = 20 } = req.query;
+  const isAdmin = req.user?.role === "admin";
+
+  if (!q && !role) throw createError(400, "Provide q or role to search");
+
+  const filter = {};
+  if (role) filter.role = role;
+
+  if (q) {
+    const searchFields = [
+      { name: { $regex: q, $options: "i" } },
+      { companyName: { $regex: q, $options: "i" } },
+      { location: { $regex: q, $options: "i" } }
+    ];
+    // Admins can also search by email and phone
+    if (isAdmin) {
+      searchFields.push({ email: { $regex: q, $options: "i" } });
+      searchFields.push({ phone: { $regex: q, $options: "i" } });
+    }
+    filter.$or = searchFields;
+  }
+
+  const users = await User.find(filter)
+    .select(isAdmin ? "-password" : "name companyName location role phone")
+    .limit(Math.min(Number(limit), 50))
+    .sort({ name: 1 });
+
+  return res.json({
+    success: true,
+    data: isAdmin ? users.map(serializeUser) : users.map(serializePublic)
+  });
+}
+
 module.exports = {
   getMe,
-  updateMe
+  updateMe,
+  searchUsers
 };

@@ -11,6 +11,7 @@ const authRoutes = require("./routes/auth.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const userRoutes = require("./routes/user.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const notificationRoutes = require("./routes/notification.routes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 function createApp() {
@@ -52,6 +53,7 @@ function createApp() {
   app.use("/api/v1/payments", paymentRoutes);
   app.use("/api/v1/users", userRoutes);
   app.use("/api/v1/dashboard", dashboardRoutes);
+  app.use("/api/v1/notifications", notificationRoutes);
 
   app.use(notFound);
   app.use(errorHandler);
