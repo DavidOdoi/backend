@@ -18,6 +18,7 @@ function createApp() {
   const app = express();
 
   const allowedOrigins = [
+    process.env.FRONTEND_URL,
     process.env.ALLOWED_ORIGIN,
     "http://localhost:5173",
     "http://localhost:5174",
@@ -30,7 +31,8 @@ function createApp() {
     cors({
       origin: allowedOrigins,
       methods: ["GET", "POST", "PATCH", "DELETE"],
-      allowedHeaders: ["Content-Type", "Authorization"]
+      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true
     })
   );
 
