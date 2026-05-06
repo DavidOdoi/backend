@@ -22,3 +22,5 @@ pids/
 # Build output
 dist/
 build/
+
+.vercel
