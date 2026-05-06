@@ -172,10 +172,6 @@ async function updateLoad(req, res) {
   }
   await load.save();
 
-  if (!load) {
-    throw createError(404, "Load not found");
-  }
-
   return res.json({
     success: true,
     data: load,
@@ -229,6 +225,25 @@ async function assignDriver(req, res) {
     changedByRole: req.user?.role || "admin"
   });
   await load.save();
+
+  // Notify trader that a driver has been assigned
+  const populatedForNotify = await Load.findById(load._id)
+    .populate("postedBy", "name email phone _id");
+  const trader = populatedForNotify?.postedBy;
+  if (trader?._id) {
+    const driverName = driver.name || "A driver";
+    const route = [load.pickupCity || load.pickupLocation, load.deliveryCity || load.deliveryLocation]
+      .filter(Boolean).join(" → ");
+    dispatchNotification({
+      recipientId: trader._id,
+      recipientEmail: trader.email,
+      recipientPhone: trader.phone,
+      type: "load_assigned",
+      title: "Driver Assigned",
+      body: `Your load (${load.trackingId}) — ${route} — has been assigned to ${driverName}.`,
+      data: { loadId: load._id, trackingId: load.trackingId, driverId }
+    }).catch((err) => console.error("[assignDriver] notify error:", err.message));
+  }
 
   return res.json({
     success: true,

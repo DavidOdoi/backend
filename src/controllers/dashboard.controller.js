@@ -19,22 +19,46 @@ async function getOverview(req, res) {
     }
   }
 
-  const [loads, payments, trucks, drivers] = await Promise.all([
+  const [
+    recentLoads,
+    recentPayments,
+    trucks,
+    drivers,
+    shipmentsTotal,
+    shipmentsInTransit,
+    shipmentsDelivered,
+    shipmentsOpen,
+    paymentsTotal,
+    paymentsPaid,
+    paymentsPending,
+    paymentsFailed,
+  ] = await Promise.all([
     Load.find(loadQuery).sort({ updatedAt: -1 }).limit(6),
     Payment.find(paymentQuery).sort({ createdAt: -1 }).limit(6),
     isAdminLike ? Truck.countDocuments() : Promise.resolve(null),
-    isAdminLike ? Driver.countDocuments() : Promise.resolve(null)
+    isAdminLike ? Driver.countDocuments() : Promise.resolve(null),
+    Load.countDocuments(loadQuery),
+    Load.countDocuments({ ...loadQuery, status: "in_transit" }),
+    Load.countDocuments({ ...loadQuery, status: "delivered" }),
+    Load.countDocuments({ ...loadQuery, status: "open" }),
+    Payment.countDocuments(paymentQuery),
+    Payment.countDocuments({ ...paymentQuery, status: "paid" }),
+    Payment.countDocuments({ ...paymentQuery, status: "pending" }),
+    Payment.countDocuments({ ...paymentQuery, status: "failed" }),
   ]);
 
+  const loads = recentLoads;
+  const payments = recentPayments;
+
   const stats = {
-    shipmentsTotal: loads.length,
-    shipmentsInTransit: loads.filter((load) => load.status === "in_transit").length,
-    shipmentsDelivered: loads.filter((load) => load.status === "delivered").length,
-    shipmentsOpen: loads.filter((load) => load.status === "open").length,
-    paymentsTotal: payments.length,
-    paymentsPaid: payments.filter((payment) => payment.status === "paid").length,
-    paymentsPending: payments.filter((payment) => payment.status === "pending").length,
-    paymentsFailed: payments.filter((payment) => payment.status === "failed").length,
+    shipmentsTotal,
+    shipmentsInTransit,
+    shipmentsDelivered,
+    shipmentsOpen,
+    paymentsTotal,
+    paymentsPaid,
+    paymentsPending,
+    paymentsFailed,
     fleetTrucks: trucks,
     fleetDrivers: drivers
   };
