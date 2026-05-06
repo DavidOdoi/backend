@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Environment variables — NEVER commit this
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime
+pids/
+*.pid
+*.seed
+
+# Build output
+dist/
+build/

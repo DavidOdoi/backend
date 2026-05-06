@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "main": "src/index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",

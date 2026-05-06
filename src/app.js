@@ -17,22 +17,28 @@ const { notFound, errorHandler } = require("./middleware/errorHandler");
 function createApp() {
   const app = express();
 
+  // FRONTEND_URL supports comma-separated values for multiple origins
+  const frontendOrigins = (process.env.FRONTEND_URL || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+
   const allowedOrigins = [
-    process.env.FRONTEND_URL,
+    ...frontendOrigins,
     process.env.ALLOWED_ORIGIN,
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
     "http://localhost:5176",
-    "http://localhost:3000"
+    "http://localhost:3000",
   ].filter(Boolean);
 
   app.use(
     cors({
       origin: allowedOrigins,
-      methods: ["GET", "POST", "PATCH", "DELETE"],
+      methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
       allowedHeaders: ["Content-Type", "Authorization"],
-      credentials: true
+      credentials: true,
     })
   );
 
@@ -41,7 +47,7 @@ function createApp() {
   app.use(express.urlencoded({ extended: true }));
 
   if (process.env.NODE_ENV !== "test") {
-    app.use(morgan("dev"));
+    app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
   }
 
   app.get("/health", (req, res) => {
