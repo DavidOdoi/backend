@@ -5,12 +5,13 @@ const { createApp } = require("./app");
 const { connectDB } = require("./config/db");
 const { init: initSocket } = require("./services/socket.service");
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 10000;
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 const SOCKET_ORIGINS = [
   ...(process.env.FRONTEND_URL || "").split(",").map(s => s.trim()).filter(Boolean),
   process.env.ALLOWED_ORIGIN,
+  "https://elogistica.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:5175",
