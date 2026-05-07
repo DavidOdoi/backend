@@ -26,10 +26,7 @@ function createApp() {
   const allowedOrigins = [
     ...frontendOrigins,
     process.env.ALLOWED_ORIGIN,
-<<<<<<< HEAD
     "https://elogistica.vercel.app",
-=======
->>>>>>> 4ec62cd1b70c4d4522d023f705d701f45162bf96
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
