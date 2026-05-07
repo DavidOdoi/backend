@@ -24,4 +24,7 @@ dist/
 build/
 
 .vercel
+<<<<<<< HEAD
 .env 
+=======
+>>>>>>> 4ec62cd1b70c4d4522d023f705d701f45162bf96

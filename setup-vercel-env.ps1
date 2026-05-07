@@ -1,0 +1,32 @@
+# ============================================================
+# Run this ONCE after: vercel login && vercel link
+# It pushes all backend env vars to your Vercel project.
+# Usage:  .\setup-vercel-env.ps1
+# ============================================================
+
+$env_vars = @{
+  "NODE_ENV"                = "production"
+  "MONGO_URI"               = "mongodb+srv://odoidavidpro_db_user:91TcIT5dX1QkC2yY@data.dxtjgrz.mongodb.net/logistics?retryWrites=true&w=majority&appName=data"
+  "MONGODB_URI"             = "mongodb+srv://odoidavidpro_db_user:91TcIT5dX1QkC2yY@data.dxtjgrz.mongodb.net/logistics?retryWrites=true&w=majority&appName=data"
+  "JWT_SECRET"              = "simba_logistics_jwt_secret_key_2024_secure_token_signing_key"
+  "FRONTEND_URL"            = "https://elogistica.vercel.app"
+  "ALLOWED_ORIGIN"          = "https://elogistica.vercel.app"
+  "GRAPHHOPPER_KEY"         = "a55a4cd6-43e3-4553-8c49-37874f3f2aed"
+  "AT_API_KEY"              = "atsk_4e73fc1de18bf82e4d9407d219bd1f69c89921bf43f6fd18a511e6940a43550c42086032"
+  "AT_USERNAME"             = "sandbox"
+  "EMAIL_USER"              = "mutebezienock91@gmail.com"
+  "EMAIL_PASS"              = "vwbbznknasnhtluk"
+  "TWILIO_ACCOUNT_SID"      = "ACb7dccb85935936a4c2c267f055b7866e"
+  "TWILIO_PHONE_NUMBER"     = "+14058512285"
+  "TWILIO_WHATSAPP_NUMBER"  = "+14155238886"
+}
+
+foreach ($key in $env_vars.Keys) {
+  $value = $env_vars[$key]
+  Write-Host "Setting $key ..." -ForegroundColor Cyan
+  $value | vercel env add $key production --yes 2>&1
+}
+
+Write-Host ""
+Write-Host "Done! All env vars pushed to Vercel production." -ForegroundColor Green
+Write-Host "Now run: vercel --prod" -ForegroundColor Yellow
